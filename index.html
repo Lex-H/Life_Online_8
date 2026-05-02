@@ -4,246 +4,210 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>人生系統 3.0</title>
-    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-    <!-- 引入 Sortable.js 用於流暢的長按拖曳排序 -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
         :root {
-            /* 原神風格色系 */
-            --gs-bg: #FAFAFA;          /* 乾淨白底 */
-            --gs-text: #3B4255;        /* 深灰藍字體 */
-            --gs-text-light: #79808D;  /* 淺灰字體 */
-            --gs-gold: #D3BC8E;        /* 原神經典金 */
+            --gs-bg: #FAFAFA;
+            --gs-text: #3B4255;
+            --gs-text-light: #79808D;
+            --gs-gold: #D3BC8E;
             --gs-gold-light: #F4E8D0;
-            --gs-anemo: #78B2A4;       /* 風元素青 */
+            --gs-anemo: #78B2A4;
             --gs-card: rgba(255, 255, 255, 0.95);
-            
-            --warm-accent: #f97316;
         }
 
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: var(--gs-bg);
-            background-image: radial-gradient(circle at 50% 0%, #ffffff 0%, #f0f0f0 100%);
-            background-attachment: fixed;
             color: var(--gs-text);
-            overflow-x: hidden;
-            user-select: none; 
-            -webkit-user-select: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
         }
 
         .title-font { font-family: 'Orbitron', sans-serif; }
 
+        /* 固定頂部佈局 */
+        .sticky-header {
+            flex-shrink: 0;
+            background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            border-bottom: 1px solid rgba(211, 188, 142, 0.2);
+        }
+
+        /* 可捲動內容區 */
+        .scrollable-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 100px;
+        }
+
         .glass-card {
             background: var(--gs-card);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(211, 188, 142, 0.3); /* 金色淡邊框 */
-            border-radius: 12px; /* 原神風格的圓角稍微收斂 */
+            border: 1px solid rgba(211, 188, 142, 0.3);
+            border-radius: 12px;
             box-shadow: 0 4px 15px rgba(59, 66, 85, 0.05);
         }
 
         .task-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent; 
+            transition: all 0.2s ease;
+            cursor: grab;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
+        .task-card:active { cursor: grabbing; }
 
         .task-card.completed {
             background: var(--gs-gold-light);
             border-color: var(--gs-gold);
         }
 
-        .task-card.completed h4 {
-            color: #9A7B4F;
+        /* 頂端小獎勵動畫 */
+        #reward-toast {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 90%;
+            max-width: 400px;
+        }
+        #reward-toast.show {
+            top: 20px;
         }
 
-        /* 鎖定樣式 */
+        /* 底部警告通知 */
+        #warning-toast {
+            position: fixed;
+            bottom: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 90;
+            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 90%;
+            max-width: 450px;
+        }
+        #warning-toast.show {
+            bottom: 85px; 
+        }
+
+        .sortable-ghost { opacity: 0.3; background: #eee; }
+        .sortable-drag { opacity: 0.9; transform: scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+
         .dev-locked {
-            filter: grayscale(1) opacity(0.6);
-            background: #f5f5f5;
-            cursor: not-allowed;
+            filter: grayscale(1) opacity(0.5);
             pointer-events: none;
-            position: relative;
         }
         
-        .dev-locked::after {
-            content: attr(data-lock-msg);
-            position: absolute;
-            right: 15px;
-            bottom: 10px;
-            font-size: 10px;
-            color: var(--gs-text-light);
-            font-weight: bold;
-        }
-
-        .btn-press { transition: transform 0.1s; }
         .btn-press:active { transform: scale(0.95); }
-
-        /* 拖曳時的視覺回饋 */
-        .sortable-ghost {
-            opacity: 0.4;
-            background: #fff;
-        }
-        .sortable-drag {
-            box-shadow: 0 10px 20px rgba(211, 188, 142, 0.4);
-            border-color: var(--gs-gold);
-            opacity: 1 !important;
-            transform: scale(1.02);
-        }
-
-        /* 浮動提示 (Toast) 動畫 */
-        @keyframes slideDown {
-            0% { transform: translate(-50%, -100%); opacity: 0; }
-            10% { transform: translate(-50%, 0); opacity: 1; }
-            90% { transform: translate(-50%, 0); opacity: 1; }
-            100% { transform: translate(-50%, -100%); opacity: 0; }
-        }
-        .toast-anim {
-            animation: slideDown 4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        /* 升級/成就動畫特效 */
-        #reward-overlay {
-            transition: opacity 0.3s ease;
-        }
-        .genshin-banner {
-            background: linear-gradient(90deg, transparent 0%, rgba(211, 188, 142, 0.9) 20%, rgba(211, 188, 142, 0.9) 80%, transparent 100%);
-            box-shadow: 0 0 30px rgba(211, 188, 142, 0.6);
-            border-top: 2px solid #FFF;
-            border-bottom: 2px solid #FFF;
-            transform: scaleY(0);
-            animation: bannerExpand 0.3s 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        .genshin-banner-content {
-            opacity: 0;
-            animation: fadeIn 0.3s 0.3s forwards;
-        }
-        @keyframes bannerExpand {
-            to { transform: scaleY(1); }
-        }
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-        
-        .power-low { color: #e11d48 !important; }
     </style>
 </head>
-<body class="min-h-screen pb-24">
+<body>
 
-    <!-- 頂部浮動提示區 -->
-    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 pointer-events-none w-11/12 max-w-md"></div>
-
-    <!-- 成就/獎勵全螢幕動畫區 -->
-    <div id="reward-overlay" class="fixed inset-0 pointer-events-none z-[400] hidden flex-col items-center justify-center bg-white/60 backdrop-blur-sm">
-        <div class="genshin-banner relative w-full py-8 text-center flex flex-col items-center justify-center">
-            <div class="genshin-banner-content">
-                <div class="flex items-center justify-center gap-4 mb-2">
-                    <span class="w-12 h-[1px] bg-white"></span>
-                    <h2 class="text-3xl font-black text-white drop-shadow-md tracking-widest title-font" id="reward-title">LEVEL UP</h2>
-                    <span class="w-12 h-[1px] bg-white"></span>
-                </div>
-                <p class="text-white mt-1 font-bold drop-shadow text-sm" id="reward-desc">達成新的里程碑</p>
-            </div>
+    <!-- 頂部獎勵通知 -->
+    <div id="reward-toast" class="glass-card bg-[var(--gs-gold)] border-white border-2 p-3 flex items-center gap-3 shadow-lg">
+        <div class="bg-white rounded-full p-2">
+            <svg class="w-5 h-5 text-[var(--gs-gold)]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        </div>
+        <div>
+            <h4 id="reward-title" class="text-white font-black text-sm tracking-widest title-font">LEVEL UP</h4>
+            <p id="reward-desc" class="text-white/90 text-[10px] font-bold italic">獲得經驗值獎勵</p>
         </div>
     </div>
 
-    <!-- Header -->
-    <header class="p-6 pt-10 flex flex-col items-start gap-2">
-        <div class="flex justify-between w-full items-start">
+    <!-- 底部警告通知 -->
+    <div id="warning-toast" class="bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center justify-center text-center">
+        <span class="text-xs font-bold leading-relaxed">⚠️ 電力偏低：人的時間、體力、意志力是有限的 ！</span>
+    </div>
+
+    <!-- 固定頂部區塊 -->
+    <header class="sticky-header p-5 pt-8">
+        <div class="flex justify-between items-start mb-4">
             <div>
-                <h2 class="text-xs font-bold text-[var(--gs-text-light)] tracking-widest title-font uppercase">Player OS V3.0</h2>
-                <!-- 模式切換按鈕 -->
-                <h1 class="text-2xl font-black text-[var(--gs-text)] flex items-center gap-2 mt-1">
+                <h2 class="text-[9px] font-bold text-[var(--gs-text-light)] tracking-widest title-font uppercase opacity-70">Player OS V3.1</h2>
+                <h1 class="text-xl font-black text-[var(--gs-text)] flex items-center gap-2">
                     人生系統 
-                    <button onclick="showModeSelection()" class="text-sm bg-white border border-[var(--gs-gold)] text-[var(--gs-gold)] px-3 py-1 rounded-full flex items-center gap-1 shadow-sm btn-press hover:bg-[var(--gs-gold-light)] transition-colors">
-                        <span id="display-mode" class="font-bold">載入中...</span>
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    <button onclick="showModeSelection()" class="text-[10px] bg-white border border-[var(--gs-gold)] text-[var(--gs-gold)] px-2 py-0.5 rounded-full font-bold shadow-sm btn-press">
+                        <span id="display-mode">載入中</span>
                     </button>
                 </h1>
             </div>
-            <div class="text-right flex flex-col items-end gap-1">
-                <div id="date-display" class="text-xs font-bold text-[var(--gs-text-light)]">----.--.--</div>
-                <div id="power-badge" class="status-badge bg-[var(--gs-blue)] text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm">POWER 100%</div>
+            <div class="text-right">
+                <div id="date-display" class="text-[10px] font-bold text-[var(--gs-text-light)]">----.--.--</div>
+                <div id="power-badge" class="text-[9px] bg-[var(--gs-text)] text-white px-2 py-0.5 rounded mt-1 font-black">POWER 100%</div>
+            </div>
+        </div>
+
+        <!-- 數據統計 (固定在頂部) -->
+        <div class="glass-card p-4 grid grid-cols-4 gap-2 text-center border-[rgba(211,188,142,0.5)]">
+            <div>
+                <p class="text-[8px] text-[var(--gs-text-light)] uppercase font-bold mb-1">今日等級</p>
+                <p class="text-lg font-black text-[var(--gs-text)]" id="current-level">0</p>
+            </div>
+            <div class="border-x border-[rgba(211,188,142,0.2)]">
+                <p class="text-[8px] text-[var(--gs-text-light)] uppercase font-bold mb-1">電力消耗</p>
+                <p class="text-lg font-black text-[var(--gs-anemo)]" id="stat-power">100%</p>
+            </div>
+            <div class="border-r border-[rgba(211,188,142,0.2)]">
+                <p class="text-[8px] text-[var(--gs-text-light)] uppercase font-bold mb-1">週累積</p>
+                <p class="text-lg font-black text-[var(--gs-gold)]" id="weekly-exp">0</p>
+            </div>
+            <div>
+                <p class="text-[8px] text-[var(--gs-text-light)] uppercase font-bold mb-1">總成就</p>
+                <p class="text-lg font-black text-[var(--gs-text)]" id="total-exp">0</p>
             </div>
         </div>
     </header>
 
-    <!-- Stats Panel -->
-    <section class="px-6 mb-6">
-        <div class="glass-card p-5 grid grid-cols-4 gap-2 text-center">
-            <div>
-                <p class="text-[9px] text-[var(--gs-text-light)] uppercase font-bold">當日等級</p>
-                <p class="text-xl font-black text-[var(--gs-text)]" id="current-level">0</p>
-            </div>
-            <!-- 電力移動至此 -->
-            <div class="border-x border-[rgba(211,188,142,0.3)]">
-                <p class="text-[9px] text-[var(--gs-text-light)] uppercase font-bold flex items-center justify-center gap-1">
-                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg>
-                    電力
-                </p>
-                <p class="text-xl font-black text-[var(--gs-anemo)]" id="stat-power">100%</p>
-            </div>
-            <div class="border-r border-[rgba(211,188,142,0.3)]">
-                <p class="text-[9px] text-[var(--gs-text-light)] uppercase font-bold">本週累積</p>
-                <p class="text-xl font-black text-[var(--gs-gold)]" id="weekly-exp">0</p>
-            </div>
-            <div>
-                <p class="text-[9px] text-[var(--gs-text-light)] uppercase font-bold">總等級</p>
-                <p class="text-xl font-black text-[var(--gs-text)]" id="total-exp">0</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Task List -->
-    <main id="task-container" class="px-6 space-y-4">
-        <!-- 主線任務 -->
-        <h3 class="text-sm font-bold text-[var(--gs-text-light)] flex items-center gap-2">
+    <!-- 可捲動任務列表區 -->
+    <main class="scrollable-content px-5 pt-4">
+        <h3 class="text-[11px] font-black text-[var(--gs-text-light)] flex items-center gap-2 mb-3">
             <span class="w-1.5 h-1.5 bg-[var(--gs-gold)] rotate-45"></span>
-            主線序列 (EXP+3) 
-            <span class="h-[1px] flex-1 bg-[rgba(211,188,142,0.3)]"></span>
+            主線任務 (EXP+3)
         </h3>
-        <div id="main-tasks" class="space-y-3 pb-2"></div>
+        <div id="main-tasks" class="space-y-3 mb-6"></div>
 
-        <!-- 支線任務 -->
-        <h3 class="text-sm font-bold text-[var(--gs-text-light)] mt-6 flex items-center gap-2">
+        <h3 class="text-[11px] font-black text-[var(--gs-text-light)] flex items-center gap-2 mb-3 mt-8">
             <span class="w-1.5 h-1.5 bg-[var(--gs-anemo)] rotate-45"></span>
-            支線協議 (EXP+1) 
-            <span class="h-[1px] flex-1 bg-[rgba(211,188,142,0.3)]"></span>
+            支線協議 (EXP+1)
         </h3>
-        <div id="sub-tasks" class="mt-3 space-y-3 pb-8"></div>
+        <div id="sub-tasks" class="space-y-3"></div>
     </main>
 
-    <!-- Footer Controls -->
-    <div class="fixed bottom-0 left-0 w-full p-5 flex justify-around items-center bg-white border-t border-[rgba(211,188,142,0.3)] shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-[100]">
-        <button onclick="location.reload()" class="flex flex-col items-center gap-1 text-[var(--gs-text)] hover:text-[var(--gs-gold)] transition-colors">
+    <!-- 底部導航欄 -->
+    <nav class="fixed bottom-0 left-0 w-full p-4 flex justify-around items-center bg-white/90 backdrop-blur-md border-t border-[rgba(211,188,142,0.2)] z-[100]">
+        <button onclick="location.reload()" class="flex flex-col items-center gap-0.5 text-[var(--gs-text)]">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span class="text-[10px] font-bold">主介面</span>
+            <span class="text-[9px] font-bold">主介面</span>
         </button>
-        <button onclick="showStatsModal()" class="flex flex-col items-center gap-1 text-[var(--gs-gold)]">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span class="text-[10px] font-bold">統計</span>
+        <button onclick="showStatsModal()" class="flex flex-col items-center gap-0.5 text-[var(--gs-gold)]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[9px] font-bold">數據</span>
         </button>
-        <button onclick="showSettings()" class="flex flex-col items-center gap-1 text-[var(--gs-text-light)] hover:text-[var(--gs-text)] transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10"/></svg>
-            <span class="text-[10px] font-bold">管理</span>
+        <button onclick="showSettings()" class="flex flex-col items-center gap-0.5 text-[var(--gs-text-light)]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10"/></svg>
+            <span class="text-[9px] font-bold">管理</span>
         </button>
-    </div>
+    </nav>
 
-    <!-- Modals -->
-    <div id="modal-overlay" class="fixed inset-0 bg-[#3B4255]/40 hidden z-[200] backdrop-blur-md flex items-center justify-center p-6 transition-opacity">
-        <div id="modal-box" class="glass-card w-full max-w-sm p-6 overflow-hidden max-h-[85vh] overflow-y-auto">
+    <!-- Modal 彈窗系統 -->
+    <div id="modal-overlay" class="fixed inset-0 bg-[#3B4255]/60 hidden z-[300] backdrop-blur-sm flex items-center justify-center p-6">
+        <div id="modal-box" class="glass-card w-full max-w-sm p-6 shadow-2xl">
             <div id="modal-body"></div>
         </div>
     </div>
 
     <script>
-        const APP_ID = 'life-v3-player-genshin';
-
+        const APP_ID = 'life-v3-optimized';
         let state = {
-            mode: null, 
+            mode: null,
             lastOpenDate: '',
             power: 100,
             currentLevel: 0,
@@ -253,55 +217,43 @@
                 main: { money: false, walk: false, review: false, plan: false, game: false, video: false, sleep: false, portfolio: false, dev: false, apply: false },
                 sub: { earn_extra: false, warm_up: false, brush: false, shower: false, laundry: false }
             },
-            history: {}, 
-            devTimer: 30 * 60,
-            timerRunning: false,
+            history: {},
             taskOrder: { main: null, sub: null }
         };
 
-        const MAIN_TASKS_CONFIG = [
-            { id: 'money', type: '賺錢線', text: '賺錢 ≧ 0', desc: '先求有，再求好' },
-            { id: 'walk', type: '身體線', text: '出門散步 10', desc: '曬太陽助眠、提升士氣、放鬆' },
-            { id: 'review', type: '成長線', text: '復盤昨日 5', desc: '檢視系統運作狀況' },
-            { id: 'plan', type: '成長線', text: '計畫六天 5', desc: '建構未來路徑' },
-            { id: 'game', type: '士氣線', text: '世紀、原神、LOL > 10', desc: '娛樂、交友、為娛樂研究技術' },
-            { id: 'video', type: '技能線', text: '看網頁前端影片 5-30', desc: '近期目的：提升士氣 > 賺錢' },
-            { id: 'sleep', type: '身體線', text: '12:00前上床', desc: '躺上床就算，躺上床就勝利！' },
-            { id: 'portfolio', type: '工作線', text: '製作前端作品集 30-60', desc: '提升核心競爭力', isLockedType: 'base3' },
-            { id: 'dev', type: '成長線', text: '開發人生Online', desc: '系統開發與優化', isDev: true, isLockedType: 'base3' },
-            { id: 'apply', type: '工作線', text: '投履歷 > 10個', desc: '目標鎖定與主動進攻', isLockedType: 'advanced' }
-        ];
-
-        const SUB_TASKS_CONFIG = [
-            { id: 'earn_extra', type: '賺錢線', text: '賺超過 400' },
-            { id: 'warm_up', type: '身體線', text: '暖身操' },
-            { id: 'brush', type: '身體線', text: '刷牙' },
-            { id: 'shower', type: '身體線', text: '洗澡' },
-            { id: 'laundry', type: '家事線', text: '洗衣服' }
-        ];
-
-        let mainSortable = null;
-        let subSortable = null;
-        let isUpdatingExp = false;
+        const CONFIG = {
+            main: [
+                { id: 'money', type: '生存', text: '賺錢 ≧ 0', desc: '確保基礎現金流' },
+                { id: 'walk', type: '生理', text: '出門散步 10min', desc: '增加血清素，輔助睡眠' },
+                { id: 'review', type: '邏輯', text: '復盤昨日系統', desc: '分析今日系統失效點' },
+                { id: 'plan', type: '架構', text: '計畫未來六天', desc: '減少不確定性焦慮' },
+                { id: 'game', type: '社交', text: '原神/LOL > 10min', desc: '必要的社交與娛樂紓壓' },
+                { id: 'video', type: '研發', text: '前端技術影片', desc: '持續優化開發思維' },
+                { id: 'sleep', type: '生理', text: '12:00 前上床', desc: '修復核心硬體效能' },
+                { id: 'portfolio', type: '進攻', text: '製作前端作品集', desc: '構建競爭優勢', lock: 'base3' },
+                { id: 'dev', type: '研發', text: '開發人生Online', desc: '優化當前運作架構', lock: 'base3' },
+                { id: 'apply', type: '進攻', text: '投遞履歷 > 10個', desc: '系統主動向外尋求資源', lock: 'advanced' }
+            ],
+            sub: [
+                { id: 'earn_extra', text: '額外營收 > 400', type: '獎勵' },
+                { id: 'warm_up', text: '基礎暖身運動', type: '維護' },
+                { id: 'brush', text: '口腔清潔', type: '維護' },
+                { id: 'shower', text: '身體清潔', type: '維護' },
+                { id: 'laundry', text: '衣物換洗', type: '維護' }
+            ]
+        };
 
         window.onload = async () => {
-            await loadState();
+            loadState();
             updateDate();
             checkDailyReset();
             render();
+            initSortable();
         };
 
-        async function loadState() {
+        function loadState() {
             const saved = localStorage.getItem(APP_ID);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                state = { ...state, ...parsed };
-                if (parsed.willpower !== undefined && parsed.power === undefined) {
-                    state.power = parsed.willpower;
-                }
-            }
-            if(!state.taskOrder) state.taskOrder = { main: null, sub: null };
-            if(state.power === undefined) state.power = 100;
+            if (saved) state = { ...state, ...JSON.parse(saved) };
         }
 
         function saveState() {
@@ -309,401 +261,250 @@
         }
 
         function updateDate() {
-            const now = new Date();
-            document.getElementById('date-display').innerText = `${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()}`;
+            const n = new Date();
+            document.getElementById('date-display').innerText = `${n.getFullYear()}.${n.getMonth()+1}.${n.getDate()}`;
         }
 
         function checkDailyReset() {
             const today = new Date().toISOString().split('T')[0];
             if (state.lastOpenDate !== today) {
-                if (state.lastOpenDate) {
-                    state.history[state.lastOpenDate] = { 
-                        level: state.currentLevel,
-                        tasks: { ...state.tasks.main, ...state.tasks.sub }
-                    };
-                }
-                
+                if (state.lastOpenDate) state.history[state.lastOpenDate] = { ...state.tasks };
                 state.lastOpenDate = today;
-                state.mode = null; 
-                state.tasks.main = Object.fromEntries(MAIN_TASKS_CONFIG.map(t => [t.id, false]));
-                state.tasks.sub = Object.fromEntries(SUB_TASKS_CONFIG.map(t => [t.id, false]));
-                state.taskOrder = { main: null, sub: null };
+                state.mode = null;
+                Object.keys(state.tasks.main).forEach(k => state.tasks.main[k] = false);
+                Object.keys(state.tasks.sub).forEach(k => state.tasks.sub[k] = false);
                 state.currentLevel = 0;
                 state.power = 100;
-                state.timerRunning = false;
                 saveState();
             }
             if (!state.mode) showModeSelection();
         }
 
-        function checkUnlockStatus() {
-            const baseFinishedCount = MAIN_TASKS_CONFIG.filter(t => !t.isLockedType && state.tasks.main[t.id]).length;
-            const isBaseUnlocked = baseFinishedCount >= 3;
-
-            let historyCount = 0;
-            let daysRecorded = 0;
-            const today = new Date();
-            
-            for (let i = 0; i < 7; i++) {
-                const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                const dateKey = d.toISOString().split('T')[0];
-                
-                if (dateKey === state.lastOpenDate) {
-                    const dailyTotal = Object.values(state.tasks.main).filter(v=>v).length + Object.values(state.tasks.sub).filter(v=>v).length;
-                    historyCount += dailyTotal;
-                    daysRecorded++;
-                } else if (state.history[dateKey]) {
-                    const h = state.history[dateKey];
-                    const dailyTotal = Object.values(h.tasks || {}).filter(v=>v).length;
-                    historyCount += dailyTotal;
-                    daysRecorded++;
-                }
-            }
-            
-            const avgTasks = daysRecorded > 0 ? historyCount / daysRecorded : 0;
-            const isAdvancedUnlocked = isBaseUnlocked && avgTasks > 3;
-
-            return { isBaseUnlocked, isAdvancedUnlocked };
-        }
-
-        function showToast(msg, isAlert = false) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            let colorClasses = isAlert 
-                ? 'bg-red-50 border-red-200 text-red-600 shadow-[0_4px_12px_rgba(225,29,72,0.1)]' 
-                : 'bg-white border-[rgba(211,188,142,0.5)] text-[var(--gs-text)] shadow-[0_4px_12px_rgba(211,188,142,0.15)]';
-
-            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md ${colorClasses} toast-anim`;
-            toast.innerHTML = `
-                ${isAlert ? '<span class="text-xl">⚠️</span>' : '<span class="text-xl text-[var(--gs-gold)]">✦</span>'}
-                <p class="text-xs font-bold leading-relaxed">${msg}</p>
-            `;
-            container.appendChild(toast);
-
-            setTimeout(() => { toast.remove(); }, 3900);
-        }
-
-        function triggerRewardAnimation(title, desc) {
-            const overlay = document.getElementById('reward-overlay');
-            const tEl = document.getElementById('reward-title');
-            const dEl = document.getElementById('reward-desc');
-            
-            tEl.innerText = title;
-            dEl.innerText = desc;
-            
-            overlay.classList.remove('hidden');
-            overlay.style.opacity = '1';
-
-            // 修改：獎勵動畫持續秒數減半 (原本 3500ms -> 1750ms)
-            setTimeout(() => {
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.classList.add('hidden'), 300);
-            }, 1750);
-        }
-
         function render() {
-            document.getElementById('power-badge').innerText = `POWER ${state.power}%`;
+            document.getElementById('display-mode').innerText = 
+                state.mode == 1 ? '正常模式' : state.mode == 2 ? '低能耗' : state.mode == 3 ? '放假模式' : '選擇模式';
             
-            const statPower = document.getElementById('stat-power');
-            statPower.innerText = `${state.power}%`;
-            
-            if (state.power > 70) statPower.className = "text-lg font-black text-[var(--gs-anemo)]";
-            else if (state.power > 40) statPower.className = "text-lg font-black text-[var(--gs-gold)]";
-            else statPower.className = "text-lg font-black power-low";
-
             document.getElementById('current-level').innerText = state.currentLevel;
             document.getElementById('total-exp').innerText = state.totalExp;
-            document.getElementById('weekly-exp').innerText = Object.values(state.weeklyExp).reduce((a, b) => a + b, 0);
+            document.getElementById('weekly-exp').innerText = Object.values(state.weeklyExp).reduce((a,b)=>a+b, 0);
             
-            document.getElementById('display-mode').innerText = 
-                state.mode == 1 ? '正常模式' : state.mode == 2 ? '低能耗模式' : state.mode == 3 ? '放假模式' : '選擇模式';
+            const p = document.getElementById('stat-power');
+            const pb = document.getElementById('power-badge');
+            p.innerText = `${state.power}%`;
+            pb.innerText = `POWER ${state.power}%`;
+            
+            if (state.power < 40) {
+                p.classList.add('text-red-500');
+            } else {
+                p.classList.remove('text-red-500');
+            }
 
-            renderTasks();
+            renderTaskList('main-tasks', CONFIG.main, state.taskOrder.main, 'main');
+            renderTaskList('sub-tasks', CONFIG.sub, state.taskOrder.sub, 'sub');
         }
 
-        function getOrderedConfig(baseConfig, orderArray) {
-            if (!orderArray) return baseConfig;
-            const validOrder = orderArray.filter(id => baseConfig.some(t => t.id === id));
-            const newTasks = baseConfig.filter(t => !validOrder.includes(t.id)).map(t => t.id);
-            const finalOrder = [...validOrder, ...newTasks];
-            return finalOrder.map(id => baseConfig.find(t => t.id === id));
-        }
+        function renderTaskList(containerId, config, order, type) {
+            const container = document.getElementById(containerId);
+            const sortedConfig = order ? [...config].sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id)) : config;
+            
+            const { unlockedBase, unlockedAdv } = checkLockStatus();
 
-        function renderTasks() {
-            const mainContainer = document.getElementById('main-tasks');
-            const subContainer = document.getElementById('sub-tasks');
-            const { isBaseUnlocked, isAdvancedUnlocked } = checkUnlockStatus();
-
-            const orderedMainTasks = getOrderedConfig(MAIN_TASKS_CONFIG, state.taskOrder.main);
-            const orderedSubTasks = getOrderedConfig(SUB_TASKS_CONFIG, state.taskOrder.sub);
-
-            mainContainer.innerHTML = orderedMainTasks.map(t => {
-                let locked = false;
-                let msg = "🔒 需先完成 3 項主線";
-                
-                if (t.isLockedType === 'base3') locked = !isBaseUnlocked;
-                else if (t.isLockedType === 'advanced') {
-                    locked = !isAdvancedUnlocked;
-                    msg = "🔒 需前置解鎖且近7天任務均值 > 3";
-                }
+            container.innerHTML = sortedConfig.map(t => {
+                let isLocked = false;
+                if (t.lock === 'base3') isLocked = !unlockedBase;
+                if (t.lock === 'advanced') isLocked = !unlockedAdv;
 
                 return `
-                <div data-id="${t.id}" onclick="toggleMainTask('${t.id}')" 
-                     data-lock-msg="${msg}"
-                     class="task-card glass-card p-4 flex justify-between items-center ${state.tasks.main[t.id] ? 'completed' : ''} ${locked ? 'dev-locked' : ''}">
-                    <div>
-                        <div class="flex items-center gap-2 pointer-events-none">
-                            <span class="text-[9px] px-1.5 py-0.5 bg-[var(--gs-gold-light)] text-[#9A7B4F] rounded font-bold">${t.type}</span>
-                            <h4 class="font-bold">${t.text}</h4>
+                <div data-id="${t.id}" 
+                     class="task-card glass-card p-4 flex justify-between items-center ${state.tasks[type][t.id]?'completed':''} ${isLocked?'dev-locked':''}"
+                     onclick="${isLocked ? '' : `handleTaskClick('${type}', '${t.id}')`}">
+                    <div class="pointer-events-none">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[8px] px-1.5 py-0.5 bg-black/5 text-black/60 rounded font-black">${t.type}</span>
+                            <span class="font-bold text-sm">${t.text}</span>
                         </div>
-                        <p class="text-[10px] text-[var(--gs-text-light)] mt-1 pointer-events-none">${t.desc}</p>
-                        ${t.isDev && state.timerRunning ? `<div class="text-xs font-bold mt-1 text-[var(--gs-gold)] pointer-events-none">開發計時中: ${formatTime(state.devTimer)}</div>` : ''}
+                        ${t.desc ? `<p class="text-[9px] text-gray-400 mt-1">${t.desc}</p>` : ''}
                     </div>
-                    <div class="w-6 h-6 rounded-full border-2 border-[var(--gs-gold)] flex items-center justify-center ${state.tasks.main[t.id] ? 'bg-[var(--gs-gold)]' : 'bg-white'} pointer-events-none">
-                        ${state.tasks.main[t.id] ? '<span class="text-white text-xs font-bold">✓</span>' : ''}
+                    <div class="w-5 h-5 rounded-full border-2 border-[var(--gs-gold)] flex items-center justify-center ${state.tasks[type][t.id]?'bg-[var(--gs-gold)]':''}">
+                        ${state.tasks[type][t.id]?'<span class="text-white text-[10px]">✓</span>':''}
                     </div>
                 </div>
             `}).join('');
-
-            subContainer.innerHTML = orderedSubTasks.map(t => `
-                <div data-id="${t.id}" onclick="toggleSubTask('${t.id}')" class="task-card glass-card p-3 flex justify-between items-center ${state.tasks.sub[t.id] ? 'completed' : ''}">
-                    <div class="flex items-center gap-2 pointer-events-none">
-                        <span class="text-[9px] text-[var(--gs-anemo)] font-bold">${t.type}</span>
-                        <span class="text-xs font-bold">${t.text}</span>
-                    </div>
-                    <div class="w-5 h-5 rounded-full border-2 border-[var(--gs-anemo)] flex items-center justify-center ${state.tasks.sub[t.id] ? 'bg-[var(--gs-anemo)]' : 'bg-white'} pointer-events-none">
-                        ${state.tasks.sub[t.id] ? '<span class="text-white text-[10px] font-bold">✓</span>' : ''}
-                    </div>
-                </div>
-            `).join('');
-
-            initSortable();
         }
 
-        function initSortable() {
-            if(mainSortable) mainSortable.destroy();
-            if(subSortable) subSortable.destroy();
-
-            mainSortable = new Sortable(document.getElementById('main-tasks'), {
-                animation: 200,
-                delay: 300, 
-                delayOnTouchOnly: true, 
-                ghostClass: 'sortable-ghost',
-                dragClass: 'sortable-drag',
-                onEnd: function () {
-                    const items = document.getElementById('main-tasks').children;
-                    state.taskOrder.main = Array.from(items).map(item => item.dataset.id);
-                    saveState();
-                }
-            });
-
-            subSortable = new Sortable(document.getElementById('sub-tasks'), {
-                animation: 200,
-                delay: 300,
-                delayOnTouchOnly: true,
-                ghostClass: 'sortable-ghost',
-                dragClass: 'sortable-drag',
-                onEnd: function () {
-                    const items = document.getElementById('sub-tasks').children;
-                    state.taskOrder.sub = Array.from(items).map(item => item.dataset.id);
-                    saveState();
-                }
-            });
-        }
-
-        function toggleMainTask(id) {
-            const taskCfg = MAIN_TASKS_CONFIG.find(t => t.id === id);
-            const { isBaseUnlocked, isAdvancedUnlocked } = checkUnlockStatus();
-            
-            if (taskCfg.isLockedType === 'base3' && !isBaseUnlocked) return;
-            if (taskCfg.isLockedType === 'advanced' && !isAdvancedUnlocked) return;
-
-            if (taskCfg.isDev) {
-                if (state.tasks.main.dev) {
-                    state.tasks.main.dev = false;
-                } else if (!state.timerRunning) {
-                    startDevTimer();
-                    return;
-                }
-            } else {
-                state.tasks.main[id] = !state.tasks.main[id];
-            }
-            
-            updateExp();
-            saveState();
-            render(); 
-        }
-
-        function toggleSubTask(id) {
-            state.tasks.sub[id] = !state.tasks.sub[id];
-            updateExp();
+        function handleTaskClick(type, id) {
+            const wasCompleted = state.tasks[type][id];
+            state.tasks[type][id] = !wasCompleted;
+            updateLogic(!wasCompleted); // 傳入是否為剛勾選
             saveState();
             render();
         }
 
-        function updateExp() {
-            if(isUpdatingExp) return;
-            isUpdatingExp = true;
+        // 獎勵隊列管理系統
+        let rewardQueue = [];
+        let isProcessingQueue = false;
 
-            const oldPower = state.power;
-            const prevDaily = state.currentLevel;
-            const prevWeekly = Object.values(state.weeklyExp).reduce((a, b) => a + b, 0);
+        function queueReward(title, desc) {
+            rewardQueue.push({ title, desc });
+            processQueue();
+        }
+
+        function processQueue() {
+            if (isProcessingQueue || rewardQueue.length === 0) return;
+
+            isProcessingQueue = true;
+            const reward = rewardQueue.shift();
+            
+            const toast = document.getElementById('reward-toast');
+            document.getElementById('reward-title').innerText = reward.title;
+            document.getElementById('reward-desc').innerText = reward.desc;
+            
+            toast.classList.add('show');
+            
+            // 動態停留時間 1.75秒，加上消失動畫 0.5秒
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    isProcessingQueue = false;
+                    processQueue(); // 處理下一個獎勵
+                }, 600); // 等待隱藏動畫完成
+            }, 1750);
+        }
+
+        function updateLogic(justChecked) {
+            const prevLevel = state.currentLevel;
             const prevTotal = state.totalExp;
-
-            const mainCount = Object.values(state.tasks.main).filter(v => v).length;
-            const subCount = Object.values(state.tasks.sub).filter(v => v).length;
-            const totalTasksCompleted = mainCount + subCount;
+            const prevWeekly = Object.values(state.weeklyExp).reduce((a,b)=>a+b, 0);
             
-            state.currentLevel = (mainCount * 3) + (subCount * 1);
+            const mCount = Object.values(state.tasks.main).filter(v=>v).length;
+            const sCount = Object.values(state.tasks.sub).filter(v=>v).length;
             
-            const newPower = Math.max(0, 100 - (totalTasksCompleted * 10));
-            state.power = newPower;
+            state.currentLevel = (mCount * 3) + (sCount * 1);
+            state.power = Math.max(0, 100 - ((mCount + sCount) * 10));
             
-            if (newPower <= 50 && newPower !== oldPower) {
-                showToast("善用剩餘的電力，人的時間、體力、意志力是有限的", true);
-            }
-
-            state.totalExp += (state.currentLevel - prevDaily);
+            state.totalExp += (state.currentLevel - prevLevel);
             state.weeklyExp[new Date().getDay()] = state.currentLevel;
+
+            const currentWeekly = Object.values(state.weeklyExp).reduce((a,b)=>a+b, 0);
+
+            // 獎勵觸發順序：今日 > 每週 > 總成就
             
-            const newWeekly = Object.values(state.weeklyExp).reduce((a, b) => a + b, 0);
-
-            let rewardTitle = null;
-            let rewardDesc = null;
-
-            if (Math.floor(state.totalExp / 100) > Math.floor(prevTotal / 100) && state.totalExp > 0) {
-                rewardTitle = "MILESTONE REACHED";
-                rewardDesc = `總等級達到 ${Math.floor(state.totalExp/100)*100}！持之以恆的證明。`;
-            } 
-            else if (Math.floor(newWeekly / 20) > Math.floor(prevWeekly / 20) && newWeekly > 0) {
-                rewardTitle = "WEEKLY REWARD";
-                rewardDesc = `本週累積達到 ${Math.floor(newWeekly/20)*20}！這週過得很充實。`;
-            }
-            else if (Math.floor(state.currentLevel / 5) > Math.floor(prevDaily / 5) && state.currentLevel > 0) {
-                rewardTitle = "DAILY GOAL";
-                rewardDesc = `當日等級達到 ${Math.floor(state.currentLevel/5)*5}！今日的努力已化為經驗。`;
+            // 1. 今日等級獎勵 (每 5 級)
+            const dailyThreshold = 5;
+            if (state.currentLevel > prevLevel && Math.floor(state.currentLevel / dailyThreshold) > Math.floor(prevLevel / dailyThreshold)) {
+                queueReward("LEVEL UP", `今日等級達成 ${state.currentLevel}！`);
             }
 
-            if (rewardTitle && rewardDesc) {
-                triggerRewardAnimation(rewardTitle, rewardDesc);
+            // 2. 每週累積獎勵 (每 20 級)
+            const weeklyThreshold = 20;
+            if (currentWeekly > prevWeekly && Math.floor(currentWeekly / weeklyThreshold) > Math.floor(prevWeekly / weeklyThreshold)) {
+                queueReward("WEEKLY GAIN", `本週累積已達 ${currentWeekly} 點！`);
             }
 
-            isUpdatingExp = false;
+            // 3. 總成就獎勵 (每 50 級)
+            const totalThreshold = 50;
+            if (state.totalExp > prevTotal && Math.floor(state.totalExp / totalThreshold) > Math.floor(prevTotal / totalThreshold)) {
+                queueReward("成就達成", `總成就經驗已達 ${state.totalExp}！`);
+            }
+
+            // 電力警告邏輯
+            if (justChecked && state.power < 50) {
+                triggerWarning();
+            }
         }
 
-        function startDevTimer() {
-            state.timerRunning = true;
-            state.devTimer = 30 * 60;
-            saveState();
-            render();
-            const interval = setInterval(() => {
-                state.devTimer--;
-                if (state.devTimer <= 0) {
-                    clearInterval(interval);
-                    state.timerRunning = false;
-                    showModal(`
-                        <div class="text-center">
-                            <h3 class="font-bold text-lg mb-2 text-[var(--gs-text)]">開發序列完成</h3>
-                            <p class="text-xs text-[var(--gs-text-light)] mb-6">人生Online 模組更新完畢。</p>
-                            <button onclick="markDevDone(); closeModal();" class="w-full py-3 bg-[var(--gs-gold)] text-white rounded-xl font-bold btn-press">標記完成 (EXP+3)</button>
-                        </div>
-                    `, false);
-                }
-                render();
+        // 注意：此函數現在已被 queueReward 內部邏輯取代，保留為 API 兼容性
+        function triggerReward(title, desc) {
+            queueReward(title, desc);
+        }
+
+        let warningTimer = null;
+        function triggerWarning() {
+            const toast = document.getElementById('warning-toast');
+            toast.classList.add('show');
+            
+            if (warningTimer) clearTimeout(warningTimer);
+            warningTimer = setTimeout(() => {
+                toast.classList.remove('show');
+                warningTimer = null;
             }, 1000);
         }
 
-        function markDevDone() {
-            state.tasks.main.dev = true;
-            updateExp();
-            saveState();
-            render();
+        function checkLockStatus() {
+            const baseDone = Object.values(state.tasks.main).slice(0, 7).filter(v=>v).length;
+            const unlockedBase = baseDone >= 3;
+            const unlockedAdv = unlockedBase && Object.keys(state.history).length > 3;
+            return { unlockedBase, unlockedAdv };
+        }
+
+        function initSortable() {
+            const commonOptions = {
+                animation: 250,
+                delay: 150, 
+                delayOnTouchOnly: true,
+                touchStartThreshold: 5,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+            };
+
+            new Sortable(document.getElementById('main-tasks'), {
+                ...commonOptions,
+                onEnd: (e) => {
+                    state.taskOrder.main = Array.from(e.to.children).map(el => el.dataset.id);
+                    saveState();
+                }
+            });
+
+            new Sortable(document.getElementById('sub-tasks'), {
+                ...commonOptions,
+                onEnd: (e) => {
+                    state.taskOrder.sub = Array.from(e.to.children).map(el => el.dataset.id);
+                    saveState();
+                }
+            });
         }
 
         function showModeSelection() {
             showModal(`
-                <div class="text-center">
-                    <h3 class="font-black text-xl mb-3 text-[var(--gs-text)]">選擇今日方針</h3>
-                    <div class="mb-5 p-4 bg-white border border-[var(--gs-gold-light)] rounded-xl shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] text-left">
-                        <p class="text-[11px] text-[var(--gs-text)] leading-relaxed font-medium">
-                            <span class="text-[var(--gs-gold)] font-bold tracking-wide">人生是自由的，選擇今天想怎麼過吧。</span><br><br>
-                            任務是機會，不是束縛。每天做一點，人生慢慢地就會改變！
-                        </p>
-                    </div>
-                    <div class="space-y-3">
-                        ${[1,2,3].map(m => `
-                            <button onclick="setMode(${m})" class="w-full p-4 glass-card text-left flex items-center gap-4 btn-press hover:bg-[var(--gs-gold-light)] transition-colors border-[rgba(211,188,142,0.5)]">
-                                <span class="text-2xl">${m==1?'✦':m==2?'✧':'❁'}</span>
-                                <div>
-                                    <div class="font-bold text-sm text-[var(--gs-text)]">${m==1?'正常模式':m==2?'低能耗模式':'放假模式'}</div>
-                                    <div class="text-[10px] text-[var(--gs-text-light)]">${m==1?'保持動能':m==2?'休養生息':'徹底放鬆'}</div>
-                                </div>
-                            </button>
-                        `).join('')}
-                    </div>
+                <h3 class="font-black text-center text-lg mb-4">選擇運作模式</h3>
+                <div class="space-y-2">
+                    <button onclick="setMode(1)" class="w-full p-4 glass-card text-left btn-press">
+                        <div class="font-bold">✦ 正常模式</div>
+                        <div class="text-[9px] opacity-60">保持系統最佳輸出效率</div>
+                    </button>
+                    <button onclick="setMode(2)" class="w-full p-4 glass-card text-left btn-press">
+                        <div class="font-bold">✧ 低能耗模式</div>
+                        <div class="text-[9px] opacity-60">資源不足，僅執行核心協議</div>
+                    </button>
+                    <button onclick="setMode(3)" class="w-full p-4 glass-card text-left btn-press">
+                        <div class="font-bold">❁ 放假模式</div>
+                        <div class="text-[9px] opacity-60">系統維護中，暫停自動化任務</div>
+                    </button>
                 </div>
             `, true);
         }
 
-        function setMode(m) { 
-            state.mode = m; 
-            saveState(); 
-            closeModal(); 
-            render(); 
-        }
-
+        function setMode(m) { state.mode = m; saveState(); closeModal(); render(); }
         function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
-        function showModal(content, showClose = true) {
+        function showModal(content, closeBtn) {
             document.getElementById('modal-body').innerHTML = content;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            if (showClose) {
-                const btn = document.createElement('button');
-                btn.className = "mt-4 w-full py-2 text-xs font-bold text-[var(--gs-gold)] btn-press";
-                btn.innerText = "關閉視窗";
-                btn.onclick = closeModal;
-                document.getElementById('modal-body').appendChild(btn);
+            if (closeBtn) {
+                const b = document.createElement('button');
+                b.className = "w-full mt-4 text-[10px] font-bold text-gray-400";
+                b.innerText = "取消";
+                b.onclick = closeModal;
+                document.getElementById('modal-body').appendChild(b);
             }
+            document.getElementById('modal-overlay').classList.remove('hidden');
         }
-
-        function formatTime(s) { return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; }
 
         function showStatsModal() {
-            const { isAdvancedUnlocked } = checkUnlockStatus();
-            showModal(`
-                <div class="text-center">
-                    <h3 class="font-black text-xl mb-4 text-[var(--gs-text)]">玩家數據報表</h3>
-                    <div class="bg-[var(--gs-bg)] border border-[rgba(211,188,142,0.3)] p-4 rounded-2xl text-left mb-4">
-                        <div class="text-xs font-bold text-[var(--gs-text-light)] mb-1">進攻權限</div>
-                        <div class="text-sm ${isAdvancedUnlocked ? 'text-[var(--gs-anemo)]' : 'text-gray-400'} font-bold">
-                            ${isAdvancedUnlocked ? '✦ 已解鎖：投履歷權限' : '✧ 尚未達成：高頻率運作模式'}
-                        </div>
-                    </div>
-                    <p class="text-xs text-[var(--gs-text-light)] leading-relaxed">當前電力：${state.power}%。</p>
-                </div>
-            `);
+            showModal(`<h3 class="font-bold text-center mb-2">統計報表</h3><p class="text-xs text-gray-500 text-center">當前電力剩餘 ${state.power}%，今日已完成 ${Object.values(state.tasks.main).filter(v=>v).length + Object.values(state.tasks.sub).filter(v=>v).length} 項任務。</p>`, true);
         }
 
         function showSettings() {
-            showModal(`
-                <div class="space-y-4">
-                    <h3 class="font-bold text-lg text-[var(--gs-text)] text-center">管理中心</h3>
-                    <button onclick="exportData()" class="w-full py-3 bg-[var(--gs-gold-light)] rounded-xl text-[#9A7B4F] font-bold text-sm btn-press">導出存檔 (.json)</button>
-                    <button onclick="confirmReset()" class="w-full py-2 text-xs text-red-400 mt-4 btn-press">重置系統</button>
-                </div>
-            `);
+            showModal(`<h3 class="font-bold text-center mb-4">系統管理</h3><button onclick="localStorage.removeItem(APP_ID); location.reload();" class="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold text-xs">重置所有存檔數據</button>`, true);
         }
-
-        function exportData() {
-            const blob = new Blob([JSON.stringify(state)], {type: 'application/json'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Player_V3_Save.json`;
-            a.click();
-        }
-
-        function confirmReset() { if (confirm("確定重置？")) { localStorage.removeItem(APP_ID); location.reload(); } }
     </script>
 </body>
 </html>
