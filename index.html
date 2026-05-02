@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>人生Online 8.X</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --warm-primary: #f59e0b;
+            --warm-accent: #f97316;
+            --warm-soft: #fff7ed;
+            --warm-gold: #fbbf24;
+            --card-glass: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #fffcf0 0%, #ffedd5 100%);
+            background-attachment: fixed;
+            color: #431407;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .title-font { font-family: 'Orbitron', 'Noto Sans TC', sans-serif; }
+
+        .glass-card {
+            background: var(--card-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(194, 65, 12, 0.1);
+        }
+
+        .task-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .task-card.completed {
+            background: rgba(251, 191, 36, 0.15);
+            border-color: var(--warm-primary);
+        }
+
+        .dev-lock {
+            filter: grayscale(0.8) opacity(0.6);
+            pointer-events: none;
+        }
+
+        .dev-unlocked {
+            filter: none;
+            opacity: 1;
+            pointer-events: auto;
+            border: 2px solid var(--warm-gold);
+            animation: pulse-orange 2s infinite;
+        }
+
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-press {
+            transition: transform 0.1s;
+        }
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+
+        #import-file { display: none; }
+        
+        .log-input {
+            border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+            transition: border-color 0.3s;
+        }
+        .log-input:focus {
+            border-color: var(--warm-accent);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-24">
+
+    <!-- Header -->
+    <header class="p-6 pt-10">
+        <div class="flex justify-between items-end">
+            <div>
+                <h2 class="text-xs font-bold text-orange-800/50 tracking-widest title-font">ARCHITECT OS V8.X</h2>
+                <h1 class="text-3xl font-black text-orange-900 flex items-center gap-2">
+                    人生Online <span class="text-orange-500">8.X</span>
+                </h1>
+            </div>
+            <div class="text-right">
+                <div id="date-display" class="text-sm font-medium text-orange-800/70">----.--.--</div>
+                <div class="status-badge bg-orange-500 text-white shadow-sm shadow-orange-200">SYSTEM ONLINE</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <section class="px-6 mb-8">
+        <div class="glass-card p-4 flex justify-between items-center border-orange-100">
+            <div class="text-center flex-1">
+                <p class="text-[10px] text-orange-800/60 uppercase font-bold">意志算力</p>
+                <p class="text-xl font-bold text-orange-600" id="willpower">100%</p>
+            </div>
+            <div class="w-[1px] h-8 bg-orange-100"></div>
+            <div class="text-center flex-1">
+                <p class="text-[10px] text-orange-800/60 uppercase font-bold">當日等級</p>
+                <p class="text-xl font-bold text-amber-500" id="current-level">LV 0</p>
+            </div>
+            <div class="w-[1px] h-8 bg-orange-100"></div>
+            <div class="text-center flex-1">
+                <p class="text-[10px] text-orange-800/60 uppercase font-bold">連續天數</p>
+                <p class="text-xl font-bold text-orange-400" id="streak">0</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Tasks -->
+    <main class="px-6 space-y-4">
+        <h3 class="text-sm font-bold text-orange-900/40 flex items-center gap-2">
+            核心任務結構 <span class="h-[1px] flex-1 bg-orange-100"></span>
+        </h3>
+
+        <!-- 身體線 -->
+        <div id="task-body" class="task-card glass-card p-5 relative overflow-hidden border-amber-100" onclick="handleTaskClick('body')">
+            <div class="flex items-start justify-between z-10 relative">
+                <div>
+                    <h4 class="font-bold text-lg text-orange-800">身體線 (Daily)</h4>
+                    <p class="text-sm text-orange-700/60">光暴露 5-20 min / 規律作息</p>
+                </div>
+                <div class="task-status">
+                    <div id="check-body" class="w-8 h-8 rounded-full border-2 border-orange-200 flex items-center justify-center transition-all"></div>
+                </div>
+            </div>
+            <div id="input-container-body" class="mt-4 hidden">
+                <input type="text" id="log-body" placeholder="輸入今日身體狀態備註..." 
+                       class="w-full bg-transparent text-sm py-2 log-input text-orange-900" 
+                       onclick="event.stopPropagation()" onblur="saveState()">
+            </div>
+        </div>
+
+        <!-- 技能線 -->
+        <div id="task-skill" class="task-card glass-card p-5 relative overflow-hidden border-amber-100" onclick="handleTaskClick('skill')">
+            <div class="flex items-start justify-between z-10 relative">
+                <div>
+                    <h4 class="font-bold text-lg text-orange-800">技能線 (Daily)</h4>
+                    <p class="text-sm text-orange-700/60">單一主線學習 (Vue/React)</p>
+                </div>
+                <div class="task-status">
+                    <div id="check-skill" class="w-8 h-8 rounded-full border-2 border-orange-200 flex items-center justify-center transition-all"></div>
+                </div>
+            </div>
+            <div id="input-container-skill" class="mt-4 hidden">
+                <input type="text" id="log-skill" placeholder="輸入今日學習進度備註..." 
+                       class="w-full bg-transparent text-sm py-2 log-input text-orange-900" 
+                       onclick="event.stopPropagation()" onblur="saveState()">
+            </div>
+        </div>
+
+        <!-- 工作線 -->
+        <div id="task-work" class="task-card glass-card p-5 relative overflow-hidden border-amber-100" onclick="handleTaskClick('work')">
+            <div class="flex items-start justify-between z-10 relative">
+                <div>
+                    <h4 class="font-bold text-lg text-orange-800">工作線 (Double Track)</h4>
+                    <p class="text-sm text-orange-700/60">瀏覽職缺或更新履歷 1 項</p>
+                </div>
+                <div class="task-status">
+                    <div id="check-work" class="w-8 h-8 rounded-full border-2 border-orange-200 flex items-center justify-center transition-all"></div>
+                </div>
+            </div>
+            <div id="input-container-work" class="mt-4 hidden">
+                <input type="text" id="log-work" placeholder="輸入今日求職/工作備註..." 
+                       class="w-full bg-transparent text-sm py-2 log-input text-orange-900" 
+                       onclick="event.stopPropagation()" onblur="saveState()">
+            </div>
+        </div>
+
+        <!-- 開發權限 -->
+        <h3 class="text-sm font-bold text-orange-900/40 mt-8 flex items-center gap-2">
+            系統開發特權 <span class="h-[1px] flex-1 bg-orange-100"></span>
+        </h3>
+        
+        <div id="dev-access" class="dev-lock glass-card p-6 text-center border-dashed border-2 border-orange-300">
+            <div class="mb-2 text-2xl">🔒</div>
+            <h4 class="font-bold text-orange-900">開發權限：30 分鐘</h4>
+            <p id="dev-desc" class="text-xs text-orange-700/60 mt-1">需完成今日所有核心任務以解鎖</p>
+            <div id="dev-timer" class="hidden mt-4 text-3xl font-black title-font text-orange-600">30:00</div>
+            <button id="start-dev" onclick="startDevSequence()" class="hidden mt-3 bg-orange-500 text-white px-8 py-3 rounded-full font-bold text-sm btn-press shadow-md shadow-orange-200">
+                啟動開發序列
+            </button>
+        </div>
+    </main>
+
+    <!-- Footer Controls -->
+    <div class="fixed bottom-0 left-0 w-full p-6 flex justify-around items-center glass-card rounded-t-3xl rounded-b-none border-x-0 border-b-0 border-orange-100 shadow-[0_-8px_30px_rgba(194,65,12,0.05)]">
+        <button onclick="location.reload()" class="flex flex-col items-center gap-1 text-orange-600">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span class="text-[10px] font-bold">主介面</span>
+        </button>
+        <button onclick="showReview()" class="flex flex-col items-center gap-1 text-orange-800/30">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[10px] font-bold">趨勢分析</span>
+        </button>
+        <button onclick="showSettings()" class="flex flex-col items-center gap-1 text-orange-800/30">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            <span class="text-[10px] font-bold">備份中心</span>
+        </button>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-orange-950/20 hidden z-[100] p-6 flex items-center justify-center backdrop-blur-sm">
+        <div class="glass-card w-full max-w-sm p-6 bg-white border-orange-200 overflow-hidden relative">
+            <div id="modal-content" class="text-orange-900"></div>
+            <button id="modal-close-btn" onclick="closeModal()" class="mt-6 w-full py-3 bg-orange-50 rounded-xl font-bold text-orange-700 hover:bg-orange-100 transition-colors">關閉</button>
+        </div>
+    </div>
+
+    <input type="file" id="import-file" accept=".json">
+
+    <script>
+        // --- IndexedDB 核心 ---
+        const DB_NAME = 'LifeSystemDB_8X';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'system_state';
+
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveToDB(stateData) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.put(JSON.parse(JSON.stringify(stateData)), 'current_state');
+                transaction.oncomplete = () => resolve();
+            });
+        }
+
+        async function loadFromDB() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get('current_state');
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // --- 核心狀態 ---
+        let state = {
+            tasks: { body: false, skill: false, work: false },
+            logs: { body: '', skill: '', work: '' },
+            willpower: 100,
+            level: 0,
+            streak: 0,
+            devTimer: 30 * 60,
+            timerActive: false,
+            lastBackupPrompt: ''
+        };
+
+        let countdownInterval = null;
+
+        window.onload = async () => {
+            updateDate();
+            try {
+                const saved = await loadFromDB();
+                if (saved) {
+                    state = { ...state, ...saved };
+                }
+                
+                // 如果存檔時倒數還在跑，恢復它
+                if (state.timerActive && state.devTimer > 0) {
+                    resumeDevSequence();
+                }
+                
+                checkBackupSchedule();
+                render();
+            } catch (e) { console.error("初始化失敗", e); }
+        };
+
+        function updateDate() {
+            const now = new Date();
+            const format = `${now.getFullYear()}.${(now.getMonth()+1).toString().padStart(2,'0')}.${now.getDate().toString().padStart(2,'0')}`;
+            document.getElementById('date-display').innerText = format;
+        }
+
+        // 週三、週日自動提示
+        function checkBackupSchedule() {
+            const now = new Date();
+            const day = now.getDay(); // 0 是週日, 3 是週三
+            const todayStr = now.toISOString().split('T')[0];
+            
+            if ((day === 0 || day === 3) && state.lastBackupPrompt !== todayStr) {
+                setTimeout(() => {
+                    showModal(`
+                        <div class="text-center">
+                            <div class="text-4xl mb-4">💾</div>
+                            <h3 class="font-bold text-xl mb-2">週期性備份提醒</h3>
+                            <p class="text-sm text-gray-500 mb-6">今天是週${day === 0 ? '日' : '三'}定期備份日，建議導出最新的系統狀態。</p>
+                            <button onclick="exportData(); state.lastBackupPrompt='${todayStr}'; saveState(); closeModal();" 
+                                    class="w-full py-4 bg-orange-500 text-white rounded-xl font-bold btn-press shadow-lg shadow-orange-100">
+                                立即執行備份 (.json)
+                            </button>
+                        </div>
+                    `);
+                }, 1000);
+            }
+        }
+
+        function handleTaskClick(type) {
+            state.tasks[type] = !state.tasks[type];
+            calculateLevel();
+            saveState();
+            render();
+            
+            const container = document.getElementById(`input-container-${type}`);
+            const input = document.getElementById(`log-${type}`);
+            
+            if (state.tasks[type]) {
+                container.classList.remove('hidden');
+                setTimeout(() => input.focus(), 100);
+            } else {
+                container.classList.add('hidden');
+            }
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
+        }
+
+        function calculateLevel() {
+            const count = Object.values(state.tasks).filter(v => v).length;
+            state.level = count;
+            state.willpower = 100 - (count * 10);
+        }
+
+        // --- 開發計時模組 ---
+        function startDevSequence() {
+            if (state.timerActive) return;
+            state.timerActive = true;
+            state.devTimer = 30 * 60;
+            saveState();
+            resumeDevSequence();
+        }
+
+        function resumeDevSequence() {
+            const timerEl = document.getElementById('dev-timer');
+            const startBtn = document.getElementById('start-dev');
+            const desc = document.getElementById('dev-desc');
+
+            timerEl.classList.remove('hidden');
+            startBtn.classList.add('hidden');
+            desc.innerText = "開發專注模式啟動中...";
+
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            countdownInterval = setInterval(() => {
+                state.devTimer--;
+                updateTimerUI();
+                
+                // 每分鐘背景儲存一次時間
+                if (state.devTimer % 60 === 0) saveState();
+
+                if (state.devTimer <= 0) {
+                    clearInterval(countdownInterval);
+                    state.timerActive = false;
+                    state.devTimer = 0;
+                    saveState();
+                    onDevTimeUp();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const m = Math.floor(state.devTimer / 60);
+            const s = state.devTimer % 60;
+            document.getElementById('dev-timer').innerText = `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function onDevTimeUp() {
+            // 手機震動提示
+            if (window.navigator.vibrate) window.navigator.vibrate([300, 100, 300]);
+            
+            showModal(`
+                <div class="text-center">
+                    <div class="text-4xl mb-4">⏰</div>
+                    <h3 class="font-bold text-xl mb-2 text-red-600">專注開發時間結束！</h3>
+                    <p class="text-sm text-gray-500 mb-6">30 分鐘已到。為確保剛才的開發進度不會遺失，請務必現在進行備份。</p>
+                    <button onclick="exportData(); closeModal();" class="w-full py-4 bg-orange-600 text-white rounded-xl font-bold btn-press shadow-xl shadow-orange-200">
+                        💾 立即導出備份
+                    </button>
+                </div>
+            `);
+            document.getElementById('dev-desc').innerText = "開發序列已結束";
+            document.getElementById('dev-timer').innerText = "00:00";
+        }
+
+        async function saveState() {
+            // 從 UI 同步最新的日誌
+            state.logs.body = document.getElementById('log-body').value;
+            state.logs.skill = document.getElementById('log-skill').value;
+            state.logs.work = document.getElementById('log-work').value;
+            await saveToDB(state);
+        }
+
+        function render() {
+            document.getElementById('willpower').innerText = state.willpower + '%';
+            document.getElementById('current-level').innerText = 'LV ' + state.level;
+            document.getElementById('streak').innerText = state.streak;
+
+            const allDone = Object.values(state.tasks).every(v => v);
+            const devCard = document.getElementById('dev-access');
+            const startBtn = document.getElementById('start-dev');
+            const timerEl = document.getElementById('dev-timer');
+
+            if (allDone) {
+                devCard.classList.remove('dev-lock');
+                devCard.classList.add('dev-unlocked');
+                if (!state.timerActive && state.devTimer > 0) startBtn.classList.remove('hidden');
+                if (state.timerActive || state.devTimer === 0) timerEl.classList.remove('hidden');
+                updateTimerUI();
+            }
+
+            for (let [id, done] of Object.entries(state.tasks)) {
+                const card = document.getElementById(`task-${id}`);
+                const check = document.getElementById(`check-${id}`);
+                const container = document.getElementById(`input-container-${id}`);
+                const input = document.getElementById(`log-${id}`);
+                
+                input.value = state.logs[id] || '';
+                if (done) {
+                    card.classList.add('completed');
+                    check.innerHTML = '<span class="text-white font-bold">✓</span>';
+                    check.classList.add('bg-orange-500', 'border-orange-500');
+                    container.classList.remove('hidden');
+                } else {
+                    card.classList.remove('completed');
+                    check.innerHTML = '';
+                    check.classList.remove('bg-orange-500', 'border-orange-500');
+                    container.classList.add('hidden');
+                }
+            }
+        }
+
+        // --- 備份/導入 ---
+        function exportData() {
+            const dataStr = JSON.stringify(state, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Architect_8X_Backup_${new Date().getTime()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function triggerImport() { document.getElementById('import-file').click(); }
+
+        document.getElementById('import-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(ev) {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    state = { ...state, ...imported };
+                    await saveState();
+                    location.reload();
+                } catch (err) { alert("檔案解析失敗"); }
+            };
+            reader.readAsText(file);
+        });
+
+        function showSettings() {
+            showModal(`
+                <div class="space-y-4">
+                    <h3 class="font-bold text-xl mb-4 text-orange-900 text-center">數據管理</h3>
+                    <button onclick="exportData()" class="w-full flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-100 btn-press">
+                        <span class="font-medium text-orange-800">手動導出備份</span><span>📤</span>
+                    </button>
+                    <button onclick="triggerImport()" class="w-full flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-100 btn-press">
+                        <span class="font-medium text-orange-800">導入 JSON 存檔</span><span>📂</span>
+                    </button>
+                    <button onclick="confirmReset()" class="w-full flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-100 btn-press">
+                        <span class="font-medium text-red-700">清空所有數據</span><span>🧹</span>
+                    </button>
+                </div>
+            `);
+        }
+
+        async function confirmReset() {
+            if (confirm("這將移除 IndexedDB 中的所有本地資料，建議先導出備份。確定執行？")) {
+                const req = indexedDB.deleteDatabase(DB_NAME);
+                req.onsuccess = () => location.reload();
+            }
+        }
+
+        function showModal(content) {
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+        function showReview() {
+            showModal(`
+                <div class="space-y-4">
+                    <h3 class="font-bold text-xl mb-4 text-orange-900">系統分析</h3>
+                    <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 text-sm">
+                        <p class="mb-2"><strong>目前統計：</strong></p>
+                        <ul class="list-disc pl-4 text-orange-800 space-y-1">
+                            <li>今日任務：${state.level}/3</li>
+                            <li>日誌總字數：${Object.values(state.logs).join('').length}</li>
+                        </ul>
+                    </div>
+                </div>
+            `);
+        }
+    </script>
+</body>
+</html>
